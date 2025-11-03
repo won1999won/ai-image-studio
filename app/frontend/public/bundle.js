@@ -21455,12 +21455,96 @@
 
   // src/App.tsx
   var import_react = __toESM(require_react(), 1);
+
+  // src/api.ts
+  var BASE = "http://localhost:8080";
+  async function login(email, password) {
+    const res = await fetch(`${BASE}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    if (!res.ok) throw new Error(`Login failed: ${res.status}`);
+    return res.json();
+  }
+  async function getHealthWithAuth(token) {
+    const res = await fetch(`${BASE}/api/health`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`Health failed: ${res.status}`);
+    return res.json();
+  }
+  async function getMe(token) {
+    const res = await fetch(`${BASE}/api/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error(`Me failed: ${res.status}`);
+    return res.json();
+  }
+
+  // src/App.tsx
   function App() {
-    const [text, setText] = (0, import_react.useState)("loading...");
+    const [email, setEmail] = (0, import_react.useState)("demo@example.com");
+    const [password, setPassword] = (0, import_react.useState)("1234");
+    const [token, setToken] = (0, import_react.useState)(null);
+    const [health, setHealth] = (0, import_react.useState)(null);
+    const [me, setMe] = (0, import_react.useState)(null);
+    const [msg, setMsg] = (0, import_react.useState)("");
     (0, import_react.useEffect)(() => {
-      fetch("http://localhost:8080/api/health").then((r) => r.json()).then((d) => setText(JSON.stringify(d, null, 2))).catch((e) => setText("error: " + (e?.message ?? "unknown")));
+      const t = localStorage.getItem("token");
+      if (t) setToken(t);
     }, []);
-    return /* @__PURE__ */ import_react.default.createElement("main", { style: { fontFamily: "system-ui", padding: 24, maxWidth: 760, margin: "0 auto" } }, /* @__PURE__ */ import_react.default.createElement("h1", null, "AI Image Studio \u2014 Day 1"), /* @__PURE__ */ import_react.default.createElement("p", null, "\uBC31\uC5D4\uB4DC /api/health \uD638\uCD9C \uACB0\uACFC:"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 12, borderRadius: 8 } }, text));
+    (0, import_react.useEffect)(() => {
+      if (!token) return;
+      setMsg("\uD1A0\uD070\uC73C\uB85C API \uD638\uCD9C \uC911\u2026");
+      Promise.all([getHealthWithAuth(token), getMe(token)]).then(([h, m]) => {
+        setHealth(h);
+        setMe(m);
+        setMsg("\uC131\uACF5!");
+      }).catch((e) => {
+        setMsg(`\uC624\uB958: ${e.message}`);
+        setHealth(null);
+        setMe(null);
+      });
+    }, [token]);
+    async function onSubmit(e) {
+      e.preventDefault();
+      setMsg("\uB85C\uADF8\uC778 \uC694\uCCAD \uC911\u2026");
+      try {
+        const res = await login(email, password);
+        localStorage.setItem("token", res.token);
+        setToken(res.token);
+        setMsg(`\uB85C\uADF8\uC778 \uC131\uACF5: ${res.email}`);
+      } catch (e2) {
+        setMsg(`\uB85C\uADF8\uC778 \uC2E4\uD328: ${e2.message}`);
+      }
+    }
+    function logout() {
+      localStorage.removeItem("token");
+      setToken(null);
+      setHealth(null);
+      setMe(null);
+      setMsg("\uB85C\uADF8\uC544\uC6C3\uB428");
+    }
+    return /* @__PURE__ */ import_react.default.createElement("main", { style: { fontFamily: "system-ui", padding: 24, maxWidth: 760, margin: "0 auto" } }, /* @__PURE__ */ import_react.default.createElement("h1", null, "AI Image Studio \u2014 Day 2"), !token ? /* @__PURE__ */ import_react.default.createElement("form", { onSubmit, style: { display: "grid", gap: 12, maxWidth: 360 } }, /* @__PURE__ */ import_react.default.createElement("label", null, "\uC774\uBA54\uC77C", /* @__PURE__ */ import_react.default.createElement(
+      "input",
+      {
+        value: email,
+        onChange: (e) => setEmail(e.target.value),
+        style: { width: "100%", padding: 8, marginTop: 4 },
+        type: "email",
+        required: true
+      }
+    )), /* @__PURE__ */ import_react.default.createElement("label", null, "\uBE44\uBC00\uBC88\uD638", /* @__PURE__ */ import_react.default.createElement(
+      "input",
+      {
+        value: password,
+        onChange: (e) => setPassword(e.target.value),
+        style: { width: "100%", padding: 8, marginTop: 4 },
+        type: "password",
+        required: true
+      }
+    )), /* @__PURE__ */ import_react.default.createElement("button", { type: "submit", style: { padding: "10px 14px" } }, "\uB85C\uADF8\uC778"), /* @__PURE__ */ import_react.default.createElement("div", null, msg)) : /* @__PURE__ */ import_react.default.createElement("section", { style: { display: "grid", gap: 12 } }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "\uC800\uC7A5\uB41C \uD1A0\uD070:"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 8, borderRadius: 6, whiteSpace: "pre-wrap" } }, token)), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "/api/me \uC751\uB2F5(\uC774\uBA54\uC77C):"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 12, borderRadius: 8 } }, me ? JSON.stringify(me, null, 2) : "\uD638\uCD9C \uC804 \uB610\uB294 \uC2E4\uD328")), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "/api/health \uC751\uB2F5:"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 12, borderRadius: 8 } }, health ? JSON.stringify(health, null, 2) : "\uD638\uCD9C \uC804 \uB610\uB294 \uC2E4\uD328")), /* @__PURE__ */ import_react.default.createElement("div", null, msg), /* @__PURE__ */ import_react.default.createElement("button", { onClick: logout, style: { padding: "10px 14px", width: 120 } }, "\uB85C\uADF8\uC544\uC6C3")));
   }
 
   // src/main.tsx
