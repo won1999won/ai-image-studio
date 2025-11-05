@@ -2,23 +2,34 @@ package com.example.aiimagestudio.auth;
 
 import com.example.aiimagestudio.auth.dto.LoginRequest;
 import com.example.aiimagestudio.auth.dto.LoginResponse;
+import com.example.aiimagestudio.auth.dto.RegisterRequest;
+import com.example.aiimagestudio.user.User;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private JwtUtil jwt;
+    private final JwtUtil jwt;
+    private final AuthService auth;
+
+    public AuthController(JwtUtil jwt, AuthService auth) {
+        this.jwt = jwt;
+        this.auth = auth;
+    }
+
+    @PostMapping("/register")
+    public LoginResponse register(@Valid @RequestBody RegisterRequest req) {
+        User u = auth.register(req.getEmail(), req.getPassword());
+        String token = jwt.generate(u.getEmail());
+        return new LoginResponse(token, u.getEmail());
+    }
 
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest req) {
-        // Day2 뼈대: 실제 비번 검증 없이 이메일만 사용 (다음 단계에서 검증 추가 예정)
-        String email = (req.getEmail() == null || req.getEmail().isBlank())
-                ? "unknown@example.com" : req.getEmail();
-
-        String jwtToken = jwt.generate(email);
-        return new LoginResponse(jwtToken, email);
+        User u = auth.authenticate(req.getEmail(), req.getPassword());
+        String token = jwt.generate(u.getEmail());
+        return new LoginResponse(token, u.getEmail());
     }
 }
