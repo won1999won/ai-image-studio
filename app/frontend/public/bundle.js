@@ -21458,31 +21458,64 @@
 
   // src/api.ts
   var BASE = "http://localhost:8080";
+  async function handle(res) {
+    if (res.ok) return res.json();
+    let body = "";
+    try {
+      body = await res.json();
+    } catch {
+      body = await res.text().catch(() => "");
+    }
+    const code = typeof body === "object" ? body.code : void 0;
+    const msg = typeof body === "object" ? body.message : body || `HTTP ${res.status}`;
+    throw new Error(code ? `${code}:${msg}` : msg);
+  }
+  async function register(email, password) {
+    const res = await fetch(`${BASE}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    return handle(res);
+  }
   async function login(email, password) {
     const res = await fetch(`${BASE}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
     });
-    if (!res.ok) throw new Error(`Login failed: ${res.status}`);
-    return res.json();
+    return handle(res);
   }
   async function getHealthWithAuth(token) {
     const res = await fetch(`${BASE}/api/health`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (!res.ok) throw new Error(`Health failed: ${res.status}`);
-    return res.json();
+    return handle(res);
   }
   async function getMe(token) {
     const res = await fetch(`${BASE}/api/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
-    if (!res.ok) throw new Error(`Me failed: ${res.status}`);
-    return res.json();
+    return handle(res);
   }
 
   // src/App.tsx
+  function userMessageOf(error) {
+    const raw = error.message || "";
+    const i = raw.indexOf(":");
+    const code = i > -1 ? raw.slice(0, i) : "";
+    const msg = i > -1 ? raw.slice(i + 1) : raw;
+    switch (code) {
+      case "email_already_exists":
+        return "\uC774\uBBF8 \uAC00\uC785\uB41C \uC774\uBA54\uC77C\uC785\uB2C8\uB2E4. \uB2E4\uB978 \uC774\uBA54\uC77C\uC744 \uC0AC\uC6A9\uD574 \uC8FC\uC138\uC694.";
+      case "invalid_credentials":
+        return "\uC774\uBA54\uC77C \uB610\uB294 \uBE44\uBC00\uBC88\uD638\uAC00 \uC62C\uBC14\uB974\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+      case "validation_error":
+        return `\uC785\uB825 \uD615\uC2DD \uC624\uB958: ${msg}`;
+      default:
+        return msg || "\uC54C \uC218 \uC5C6\uB294 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC5B4\uC694.";
+    }
+  }
   function App() {
     const [email, setEmail] = (0, import_react.useState)("demo@example.com");
     const [password, setPassword] = (0, import_react.useState)("1234");
@@ -21490,6 +21523,7 @@
     const [health, setHealth] = (0, import_react.useState)(null);
     const [me, setMe] = (0, import_react.useState)(null);
     const [msg, setMsg] = (0, import_react.useState)("");
+    const [mode, setMode] = (0, import_react.useState)("login");
     (0, import_react.useEffect)(() => {
       const t = localStorage.getItem("token");
       if (t) setToken(t);
@@ -21502,21 +21536,21 @@
         setMe(m);
         setMsg("\uC131\uACF5!");
       }).catch((e) => {
-        setMsg(`\uC624\uB958: ${e.message}`);
+        setMsg(userMessageOf(e));
         setHealth(null);
         setMe(null);
       });
     }, [token]);
     async function onSubmit(e) {
       e.preventDefault();
-      setMsg("\uB85C\uADF8\uC778 \uC694\uCCAD \uC911\u2026");
+      setMsg(mode === "login" ? "\uB85C\uADF8\uC778 \uC694\uCCAD \uC911\u2026" : "\uD68C\uC6D0\uAC00\uC785 \uC694\uCCAD \uC911\u2026");
       try {
-        const res = await login(email, password);
+        const res = mode === "login" ? await login(email, password) : await register(email, password);
         localStorage.setItem("token", res.token);
         setToken(res.token);
-        setMsg(`\uB85C\uADF8\uC778 \uC131\uACF5: ${res.email}`);
+        setMsg(`${mode === "login" ? "\uB85C\uADF8\uC778" : "\uD68C\uC6D0\uAC00\uC785"} \uC131\uACF5: ${res.email}`);
       } catch (e2) {
-        setMsg(`\uB85C\uADF8\uC778 \uC2E4\uD328: ${e2.message}`);
+        setMsg(userMessageOf(e2));
       }
     }
     function logout() {
@@ -21526,7 +21560,23 @@
       setMe(null);
       setMsg("\uB85C\uADF8\uC544\uC6C3\uB428");
     }
-    return /* @__PURE__ */ import_react.default.createElement("main", { style: { fontFamily: "system-ui", padding: 24, maxWidth: 760, margin: "0 auto" } }, /* @__PURE__ */ import_react.default.createElement("h1", null, "AI Image Studio \u2014 Day 2"), !token ? /* @__PURE__ */ import_react.default.createElement("form", { onSubmit, style: { display: "grid", gap: 12, maxWidth: 360 } }, /* @__PURE__ */ import_react.default.createElement("label", null, "\uC774\uBA54\uC77C", /* @__PURE__ */ import_react.default.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("main", { style: { fontFamily: "system-ui", padding: 24, maxWidth: 760, margin: "0 auto" } }, /* @__PURE__ */ import_react.default.createElement("h1", null, "AI Image Studio \u2014 Day 2"), !token ? /* @__PURE__ */ import_react.default.createElement("form", { onSubmit, style: { display: "grid", gap: 12, maxWidth: 360 } }, /* @__PURE__ */ import_react.default.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: () => setMode("login"),
+        style: { padding: "6px 10px", background: mode === "login" ? "#ddd" : "#f4f4f4" }
+      },
+      "\uB85C\uADF8\uC778"
+    ), /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: () => setMode("register"),
+        style: { padding: "6px 10px", background: mode === "register" ? "#ddd" : "#f4f4f4" }
+      },
+      "\uD68C\uC6D0\uAC00\uC785"
+    )), /* @__PURE__ */ import_react.default.createElement("label", null, "\uC774\uBA54\uC77C", /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         value: email,
@@ -21544,7 +21594,7 @@
         type: "password",
         required: true
       }
-    )), /* @__PURE__ */ import_react.default.createElement("button", { type: "submit", style: { padding: "10px 14px" } }, "\uB85C\uADF8\uC778"), /* @__PURE__ */ import_react.default.createElement("div", null, msg)) : /* @__PURE__ */ import_react.default.createElement("section", { style: { display: "grid", gap: 12 } }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "\uC800\uC7A5\uB41C \uD1A0\uD070:"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 8, borderRadius: 6, whiteSpace: "pre-wrap" } }, token)), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "/api/me \uC751\uB2F5(\uC774\uBA54\uC77C):"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 12, borderRadius: 8 } }, me ? JSON.stringify(me, null, 2) : "\uD638\uCD9C \uC804 \uB610\uB294 \uC2E4\uD328")), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "/api/health \uC751\uB2F5:"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 12, borderRadius: 8 } }, health ? JSON.stringify(health, null, 2) : "\uD638\uCD9C \uC804 \uB610\uB294 \uC2E4\uD328")), /* @__PURE__ */ import_react.default.createElement("div", null, msg), /* @__PURE__ */ import_react.default.createElement("button", { onClick: logout, style: { padding: "10px 14px", width: 120 } }, "\uB85C\uADF8\uC544\uC6C3")));
+    )), /* @__PURE__ */ import_react.default.createElement("button", { type: "submit", style: { padding: "10px 14px" } }, mode === "login" ? "\uB85C\uADF8\uC778" : "\uD68C\uC6D0\uAC00\uC785"), /* @__PURE__ */ import_react.default.createElement("div", { style: { color: msg.startsWith("\uB85C\uADF8\uC778 \uC131\uACF5") || msg.startsWith("\uD68C\uC6D0\uAC00\uC785 \uC131\uACF5") || msg === "\uC131\uACF5!" ? "#0a0" : "#d33" } }, msg)) : /* @__PURE__ */ import_react.default.createElement("section", { style: { display: "grid", gap: 12 } }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "\uC800\uC7A5\uB41C \uD1A0\uD070:"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 8, borderRadius: 6, whiteSpace: "pre-wrap" } }, token)), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "/api/me \uC751\uB2F5(\uC774\uBA54\uC77C):"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 12, borderRadius: 8 } }, me ? JSON.stringify(me, null, 2) : "\uD638\uCD9C \uC804 \uB610\uB294 \uC2E4\uD328")), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("strong", null, "/api/health \uC751\uB2F5:"), /* @__PURE__ */ import_react.default.createElement("pre", { style: { background: "#111", color: "#0f0", padding: 12, borderRadius: 8 } }, health ? JSON.stringify(health, null, 2) : "\uD638\uCD9C \uC804 \uB610\uB294 \uC2E4\uD328")), /* @__PURE__ */ import_react.default.createElement("div", null, msg), /* @__PURE__ */ import_react.default.createElement("button", { onClick: logout, style: { padding: "10px 14px", width: 120 } }, "\uB85C\uADF8\uC544\uC6C3")));
   }
 
   // src/main.tsx

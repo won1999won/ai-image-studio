@@ -1,7 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { login, getHealthWithAuth, getMe } from "./api";
+import { login, register, getHealthWithAuth, getMe } from "./api";
 
 type Health = { ok: boolean; service: string; version: string };
+
+function userMessageOf(error: Error) {
+  const raw = error.message || "";
+  const i = raw.indexOf(":");
+  const code = i > -1 ? raw.slice(0, i) : "";
+  const msg = i > -1 ? raw.slice(i + 1) : raw;
+
+  switch (code) {
+    case "email_already_exists":
+      return "이미 가입된 이메일입니다. 다른 이메일을 사용해 주세요.";
+    case "invalid_credentials":
+      return "이메일 또는 비밀번호가 올바르지 않습니다.";
+    case "validation_error":
+      return `입력 형식 오류: ${msg}`;
+    default:
+      return msg || "알 수 없는 오류가 발생했어요.";
+  }
+}
 
 export default function App() {
   const [email, setEmail] = useState("demo@example.com");
@@ -10,6 +28,7 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [me, setMe] = useState<{ email: string } | null>(null);
   const [msg, setMsg] = useState<string>("");
+  const [mode, setMode] = useState<"login" | "register">("login");
 
   // 시작 시 저장된 토큰 복원
   useEffect(() => {
@@ -27,8 +46,8 @@ export default function App() {
         setMe(m);
         setMsg("성공!");
       })
-      .catch((e) => {
-        setMsg(`오류: ${e.message}`);
+      .catch((e: any) => {
+        setMsg(userMessageOf(e));
         setHealth(null);
         setMe(null);
       });
@@ -36,14 +55,16 @@ export default function App() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg("로그인 요청 중…");
+    setMsg(mode === "login" ? "로그인 요청 중…" : "회원가입 요청 중…");
     try {
-      const res = await login(email, password);
+      const res = mode === "login"
+        ? await login(email, password)
+        : await register(email, password);
       localStorage.setItem("token", res.token);
       setToken(res.token);
-      setMsg(`로그인 성공: ${res.email}`);
+      setMsg(`${mode === "login" ? "로그인" : "회원가입"} 성공: ${res.email}`);
     } catch (e: any) {
-      setMsg(`로그인 실패: ${e.message}`);
+      setMsg(userMessageOf(e));
     }
   }
 
@@ -61,6 +82,23 @@ export default function App() {
 
       {!token ? (
         <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, maxWidth: 360 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              style={{ padding: "6px 10px", background: mode === "login" ? "#ddd" : "#f4f4f4" }}
+            >
+              로그인
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("register")}
+              style={{ padding: "6px 10px", background: mode === "register" ? "#ddd" : "#f4f4f4" }}
+            >
+              회원가입
+            </button>
+          </div>
+
           <label>
             이메일
             <input
@@ -81,8 +119,13 @@ export default function App() {
               required
             />
           </label>
-          <button type="submit" style={{ padding: "10px 14px" }}>로그인</button>
-          <div>{msg}</div>
+
+          <button type="submit" style={{ padding: "10px 14px" }}>
+            {mode === "login" ? "로그인" : "회원가입"}
+          </button>
+          <div style={{ color: msg.startsWith("로그인 성공") || msg.startsWith("회원가입 성공") || msg === "성공!" ? "#0a0" : "#d33" }}>
+            {msg}
+          </div>
         </form>
       ) : (
         <section style={{ display: "grid", gap: 12 }}>
